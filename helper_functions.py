@@ -616,3 +616,305 @@ def display_clusters_side_by_side(group1_data, group2_data, group1_labels, group
             print(f"{group1_line:78s}  {group2_line:78s}")
         
         print()
+
+
+def create_3d_cluster_visualisation(clustering_data_path, cluster_labels, words_to_exclude=None, color_map=None, top_n_words_per_cluster=10, word_size_min=3, word_size_max=6, sphere_size_base=40, label_offset_z=0.4, word_distance_scale=0.3, renderer='browser', title=None, subtitle=None):
+    """
+    Create a 3D visualisation of clustered noun embeddings.
+    """
+    import numpy as np
+    import plotly.graph_objects as go
+    from sklearn.decomposition import PCA
+    from pypinyin import lazy_pinyin, Style
+    import pickle
+    
+    # Load clustering data
+    with open(clustering_data_path, 'rb') as f:
+        clustering_data = pickle.load(f)
+    
+    # Extract the saved data
+    labels = clustering_data['labels']
+    embeddings = clustering_data['embeddings']
+    nouns_df = clustering_data['nouns_df'].copy()
+    
+    # Default words to exclude (empty list)
+    if words_to_exclude is None:
+        words_to_exclude = []
+    
+    # Filter the data
+    if len(words_to_exclude) > 0:
+        mask_to_keep = ~nouns_df['Noun'].isin(words_to_exclude)
+        indices_to_keep = mask_to_keep.values
+        
+        nouns_df = nouns_df[mask_to_keep].reset_index(drop=True)
+        embeddings = embeddings[indices_to_keep]
+        labels = labels[indices_to_keep]
+    
+    # Add pinyin column
+    nouns_df['Pinyin'] = nouns_df['Noun'].apply(lambda x: ' '.join(lazy_pinyin(x, style=Style.TONE)))
+    
+    # Reduce to 3D for visualisation
+    pca_3d = PCA(n_components=3, random_state=42)
+    embeddings_3d = pca_3d.fit_transform(embeddings)
+    
+    # Only display clusters that have labels
+    display_clusters = np.array(list(cluster_labels.keys()))
+    
+    # Generate color map if not provided, or fill in missing colors
+    if color_map is None:
+        color_map = {}
+
+    # Fill in any missing colors for clusters in cluster_labels
+    if len(color_map) < len(display_clusters):
+        # Use a small set of highly distinct colors
+        base_colors = [
+            '#EF4444',  # Red
+            '#10B981',  # Green
+            '#3B82F6',  # Blue
+            '#F59E0B',  # Orange
+            '#8B5CF6',  # Purple
+            '#06B6D4',  # Cyan
+            '#EC4899',  # Pink
+            '#EAB308'   # Yellow
+        ]
+        
+        # Find clusters that need colors
+        clusters_needing_colors = [cid for cid in display_clusters if cid not in color_map]
+        
+        # Assign colors to missing clusters, avoiding colors already used
+        used_colors = set(color_map.values())
+        available_colors = [c for c in base_colors if c not in used_colors]
+        
+        for i, cluster_id in enumerate(clusters_needing_colors):
+            color_map[cluster_id] = available_colors[i % len(available_colors)]
+    
+    # Create lists to store cluster info and top words
+    cluster_info = []
+    all_top_words_data = []
+    
+    for cluster_id in display_clusters:
+        cluster_mask = labels == cluster_id
+        cluster_points_3d = embeddings_3d[cluster_mask]
+        cluster_points_100d = embeddings[cluster_mask]
+        cluster_words = nouns_df[cluster_mask].copy()
+        
+        if len(cluster_points_3d) == 0:
+            continue
+        
+        # Calculate the centroid in each embedding space
+        centroid_3d = cluster_points_3d.mean(axis=0)
+        centroid_100d = cluster_points_100d.mean(axis=0)
+        
+        # Calculate each word's distance from the centroid in 100-dimensional space
+        distances_100d = np.linalg.norm(cluster_points_100d - centroid_100d, axis=1)
+        
+        # Get n closest words
+        closest_indices = np.argsort(distances_100d)[:top_n_words_per_cluster]
+        
+        # Get average distance for 10 closest words
+        avg_distance_top10 = distances_100d[closest_indices].mean()
+        
+        cluster_words_with_index = cluster_words.reset_index(drop=True)
+        
+        for local_idx in closest_indices:
+            word_row = cluster_words_with_index.iloc[local_idx]
+            
+            all_top_words_data.append({
+                'cluster_id': cluster_id,
+                'noun': word_row['Noun'],
+                'english': word_row['English'],
+                'pinyin': word_row['Pinyin'],
+                'frequency': word_row['Frequency'],
+                'position_3d': cluster_points_3d[local_idx],
+                'centroid_3d': centroid_3d,
+                'color': color_map[cluster_id]
+            })
+        
+        cluster_info.append({
+            'id': cluster_id,
+            'centroid': centroid_3d,
+            'size': cluster_mask.sum(),
+            'avg_spread': avg_distance_top10,
+            'label': cluster_labels[cluster_id],
+            'color': color_map[cluster_id]
+        })
+    
+    # Group words by cluster for per-cluster frequency scaling
+    words_by_cluster = {}
+    for word_data in all_top_words_data:
+        cluster_id = word_data['cluster_id']
+        if cluster_id not in words_by_cluster:
+            words_by_cluster[cluster_id] = []
+        words_by_cluster[cluster_id].append(word_data)
+    
+    # Calculate frequency range for each cluster
+    cluster_freq_ranges = {}
+    for cluster_id, words in words_by_cluster.items():
+        freqs = [w['frequency'] for w in words]
+        min_freq = min(freqs)
+        max_freq = max(freqs)
+        cluster_freq_ranges[cluster_id] = {
+            'min': min_freq,
+            'max': max_freq,
+            'range': max_freq - min_freq if max_freq > min_freq else 1
+        }
+    
+    # Calculate spread range across all clusters for sphere sizing
+    all_spreads = [c['avg_spread'] for c in cluster_info]
+    min_spread = min(all_spreads)
+    max_spread = max(all_spreads)
+    spread_range = max_spread - min_spread if max_spread > min_spread else 1
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add spheres for each cluster (sized by spread)
+    for info in cluster_info:
+        centroid = info['centroid']
+        
+        # Scale sphere size based on cluster spread
+        normalised_spread = (info['avg_spread'] - min_spread) / spread_range
+        sphere_size = sphere_size_base * (0.5 + normalised_spread * 1.0)
+        
+        # Add sphere
+        fig.add_trace(go.Scatter3d(
+            x=[centroid[0]],
+            y=[centroid[1]],
+            z=[centroid[2]],
+            mode='markers',
+            name=info['label'],
+            marker=dict(
+                size=sphere_size,
+                color=info['color'],
+                line=dict(width=2, color='white'),
+                opacity=0.3
+            ),
+            hovertemplate=(
+                f"<b>{info['label']}</b><br>"
+                f"Size: {info['size']} words<br>"
+                f"Spread: {info['avg_spread']:.3f}<br>"
+                "<extra></extra>"
+            ),
+            showlegend=True,
+            legendgroup=str(info['id'])
+        ))
+        
+        # Add cluster label above sphere
+        fig.add_trace(go.Scatter3d(
+            x=[centroid[0]],
+            y=[centroid[1]],
+            z=[centroid[2] + label_offset_z],
+            mode='text',
+            text=[info['label']],
+            textfont=dict(size=14, color='white', family='Arial Black'),
+            textposition='middle center',
+            showlegend=False,
+            hoverinfo='skip',
+            legendgroup=str(info['id'])
+        ))
+    
+    # Add top words as sized points (with per-cluster frequency scaling)
+    for word_data in all_top_words_data:
+        cluster_id = word_data['cluster_id']
+        freq_info = cluster_freq_ranges[cluster_id]
+        
+        # Scale word size based on frequency within the cluster
+        normalised_freq = (word_data['frequency'] - freq_info['min']) / freq_info['range']
+        word_size = word_size_min + (word_size_max - word_size_min) * normalised_freq
+        
+        pos = word_data['position_3d']
+        centroid = word_data['centroid_3d']
+        
+        # Scale distance from centroid
+        direction = pos - centroid
+        scaled_pos = centroid + direction * word_distance_scale
+        
+        fig.add_trace(go.Scatter3d(
+            x=[scaled_pos[0]],
+            y=[scaled_pos[1]],
+            z=[scaled_pos[2]],
+            mode='markers',
+            marker=dict(
+                size=word_size,
+                color=word_data['color'],
+                line=dict(width=1, color='white'),
+                opacity=0.9
+            ),
+            hovertemplate=(
+                f"<b>{word_data['noun']}</b> <b>({word_data['pinyin']})</b><br>"
+                f"{word_data['english']}<br>"
+                "<extra></extra>"
+            ),
+            showlegend=False,
+            legendgroup=str(word_data['cluster_id'])
+        ))
+    
+    # Configure layout (hardcoded styling)
+    title_config = None
+    if title is not None:
+        if subtitle:
+            title_text = f'<b>{title}</b><br>{subtitle}'
+        else:
+            title_text = f'<b>{title}</b>'
+        title_config = {
+            'text': title_text,
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 16, 'color': 'white'}
+        }
+    
+    fig.update_layout(
+        title=title_config,
+        scene=dict(
+            xaxis_title='PC1',
+            yaxis_title='PC2',
+            zaxis_title='PC3',
+            xaxis=dict(
+                backgroundcolor='#1E1E1E',
+                gridcolor='#404040',
+                showbackground=True,
+                zerolinecolor='#404040',
+                title=dict(font=dict(color='white'))
+            ),
+            yaxis=dict(
+                backgroundcolor='#1E1E1E',
+                gridcolor='#404040',
+                showbackground=True,
+                zerolinecolor='#404040',
+                title=dict(font=dict(color='white'))
+            ),
+            zaxis=dict(
+                backgroundcolor='#1E1E1E',
+                gridcolor='#404040',
+                showbackground=True,
+                zerolinecolor='#404040',
+                title=dict(font=dict(color='white'))
+            ),
+            camera=dict(
+                eye=dict(x=2.5, y=2.5, z=2.5)
+            ),
+            bgcolor='#1E1E1E'
+        ),
+        width=1600,
+        height=1000,
+        hoverlabel=dict(
+            bgcolor="rgba(30,30,30,0.95)",
+            font_size=12,
+            font_family="Arial",
+            font_color="white"
+        ),
+        paper_bgcolor='#1E1E1E',
+        plot_bgcolor='#1E1E1E',
+        hovermode='closest',
+        showlegend=True,
+        legend=dict(
+            bgcolor='rgba(30,30,30,0.8)',
+            font=dict(color='white', size=10),
+            itemsizing='constant'
+        )
+    )
+    
+    if renderer:
+        fig.show(renderer=renderer)
+    
+    return fig
