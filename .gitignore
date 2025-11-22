@@ -1,3 +1,4 @@
 data/*.xlsx
 data/*.pkl
 data/*.npy
+__pycache__/
