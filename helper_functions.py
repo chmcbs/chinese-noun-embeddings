@@ -809,7 +809,7 @@ def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_ex
                 f"Spread: {info['avg_spread']:.3f}<br>"
                 "<extra></extra>"
             ),
-            showlegend=True,
+            showlegend=info['color'] != '#000000',  # Only show non-black clusters in legend
             legendgroup=str(info['id'])
         ))
         
