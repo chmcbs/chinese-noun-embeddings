@@ -618,7 +618,7 @@ def display_clusters_side_by_side(group1_data, group2_data, group1_labels, group
         print()
 
 
-def create_3d_cluster_visualisation(clustering_data_path, cluster_labels, words_to_exclude=None, color_map=None, top_n_words_per_cluster=10, word_size_min=3, word_size_max=6, sphere_size_base=40, label_offset_z=0.4, word_distance_scale=0.3, renderer='browser', title=None, subtitle=None):
+def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_exclude=None, color_map=None, top_n_words_per_cluster=10, word_size_min=3, word_size_max=6, sphere_size_base=40, label_offset_z=0.4, word_distance_scale=0.3, renderer='browser', title=None, subtitle=None):
     """
     Create a 3D visualisation of clustered noun embeddings.
     """
@@ -628,9 +628,13 @@ def create_3d_cluster_visualisation(clustering_data_path, cluster_labels, words_
     from pypinyin import lazy_pinyin, Style
     import pickle
     
-    # Load clustering data
-    with open(clustering_data_path, 'rb') as f:
-        clustering_data = pickle.load(f)
+    # Load clustering data - handle both file path and direct data
+    if isinstance(clustering_data, str):
+        # It's a file path - load from pickle
+        with open(clustering_data, 'rb') as f:
+            clustering_data = pickle.load(f)
+    elif not isinstance(clustering_data, dict):
+        raise TypeError("clustering_data must be either a string (file path) or a dictionary")
     
     # Extract the saved data
     labels = clustering_data['labels']
@@ -666,7 +670,7 @@ def create_3d_cluster_visualisation(clustering_data_path, cluster_labels, words_
 
     # Fill in any missing colors for clusters in cluster_labels
     if len(color_map) < len(display_clusters):
-        # Use a small set of highly distinct colors
+        # Use a set of highly distinct colors
         base_colors = [
             '#EF4444',  # Red
             '#10B981',  # Green
@@ -675,7 +679,17 @@ def create_3d_cluster_visualisation(clustering_data_path, cluster_labels, words_
             '#8B5CF6',  # Purple
             '#06B6D4',  # Cyan
             '#EC4899',  # Pink
-            '#EAB308'   # Yellow
+            '#EAB308',  # Yellow
+            '#84CC16',  # Lime
+            '#F97316',  # Orange-Red
+            '#14B8A6',  # Teal
+            '#6366F1',  # Indigo
+            '#A855F7',  # Violet
+            '#F43F5E',  # Rose
+            '#22C55E',  # Emerald
+            '#0EA5E9',  # Sky Blue
+            '#A3E635',  # Light Green
+            '#FB923C',  # Light Orange
         ]
         
         # Find clusters that need colors
