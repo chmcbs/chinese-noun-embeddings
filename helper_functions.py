@@ -905,12 +905,12 @@ def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_ex
                 title=dict(font=dict(color='white'))
             ),
             camera=dict(
-                eye=dict(x=2.5, y=2.5, z=2.5)
+                eye=dict(x=1.0, y=1.0, z=1.0)
             ),
             bgcolor='#1E1E1E'
         ),
-        width=1600,
-        height=1000,
+        width=1000,
+        height=600,
         hoverlabel=dict(
             bgcolor="rgba(30,30,30,0.95)",
             font_size=12,
