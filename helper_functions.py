@@ -618,7 +618,7 @@ def display_clusters_side_by_side(group1_data, group2_data, group1_labels, group
         print()
 
 
-def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_exclude=None, color_map=None, top_n_words_per_cluster=10, word_size_min=3, word_size_max=6, sphere_size_base=40, label_offset_z=0.4, word_distance_scale=0.3, renderer='browser', title=None, subtitle=None):
+def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_exclude=None, color_map=None, top_n_words_per_cluster=10, word_size_min=3, word_size_max=6, sphere_size_base=40, label_offset_z=0.4, word_distance_scale=0.3, renderer='browser', title=None, subtitle=None, show_legend=True):
     """
     Create a 3D visualisation of clustered noun embeddings.
     """
@@ -809,7 +809,7 @@ def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_ex
                 f"Spread: {info['avg_spread']:.3f}<br>"
                 "<extra></extra>"
             ),
-            showlegend=info['color'] != '#000000',  # Only show non-black clusters in legend
+            showlegend=show_legend and info['color'] != '#000000',  # Only show non-black clusters in legend
             legendgroup=str(info['id'])
         ))
         
@@ -920,7 +920,7 @@ def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_ex
         paper_bgcolor='#1E1E1E',
         plot_bgcolor='#1E1E1E',
         hovermode='closest',
-        showlegend=True,
+        showlegend=show_legend,
         legend=dict(
             bgcolor='rgba(30,30,30,0.8)',
             font=dict(color='white', size=10),
