@@ -618,7 +618,7 @@ def display_clusters_side_by_side(group1_data, group2_data, group1_labels, group
         print()
 
 
-def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_exclude=None, color_map=None, top_n_words_per_cluster=10, word_size_min=3, word_size_max=6, sphere_size_base=40, label_offset_z=0.4, word_distance_scale=0.3, renderer='browser', title=None, subtitle=None, show_legend=True):
+def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_exclude=None, color_map=None, top_n_words_per_cluster=10, word_size_min=3, word_size_max=6, sphere_size_base=40, label_offset_z=0.4, word_distance_scale=0.3, renderer='browser', title=None, subtitle=None, show_legend=True, width=1000, height=600):
     """
     Create a 3D visualisation of clustered noun embeddings.
     """
@@ -909,8 +909,9 @@ def create_3d_cluster_visualisation(clustering_data, cluster_labels, words_to_ex
             ),
             bgcolor='#1E1E1E'
         ),
-        width=1000,
-        height=600,
+        width=width,
+        height=height,
+        autosize=True if width is None else False,
         hoverlabel=dict(
             bgcolor="rgba(30,30,30,0.95)",
             font_size=12,
