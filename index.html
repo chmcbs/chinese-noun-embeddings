@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chinese Noun Embeddings in Encoder Transformers</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #24292e;
+        }
+        h1 {
+            font-size: 2em;
+            padding-bottom: 0.3em;
+            margin-bottom: 16px;
+        }
+        h1 .subtitle {
+            font-weight: 400;
+            color: #24292e;
+        }
+        h2 {
+            font-size: 1.5em;
+            border-bottom: 1px solid #e1e4e8;
+            padding-bottom: 0.3em;
+            margin-top: 24px;
+            margin-bottom: 16px;
+        }
+        h3 {
+            font-size: 1.25em;
+            margin-top: 24px;
+            margin-bottom: 16px;
+        }
+        p {
+            margin-bottom: 16px;
+        }
+        strong {
+            font-weight: 600;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #e1e4e8;
+            margin: 24px 0;
+        }
+        .side-by-side {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .side-by-side > * {
+            flex: 1;
+        }
+        .side-by-side img {
+            width: 100%;
+            height: auto;
+        }
+        .stacked {
+            margin: 10px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .stacked iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 900px) {
+            .side-by-side {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Chinese Noun Embeddings in Encoder Transformers: <span class="subtitle">Hierarchical Structure and Masking Trade-offs</span></h1>
+    <p style="color: #586069; font-size: 0.95em; margin-top: -8px; font-style: italic;">Charlie McCormick-Barnes, November 2025</p>
+    <h2>Overview</h2>
+    <p>This analysis examines how encoder transformer models represent Chinese nouns in embedding space. Clustering analysis of BERT (character-level masking) and RoBERTa (whole-word masking) embeddings reveals consistent hierarchical organisation: morphology first, then semantics. Different masking strategies create fundamental trade-offs in how these representations are structured.</p>
+
+    <h2>Key Findings</h2>
+
+    <h3>1. Morphology Dominates Global Structure</h3>
+    <p><strong>BERT and RoBERTa's primary organising principle separates nouns by morphological complexity before semantic categories emerge.</strong></p>
+    <p>For both models, the axis capturing the most variance (PC1) strongly correlates with word length, with single-character, two-character, and three-character nouns occupying distinct regions.</p>
+
+    <div class="side-by-side">
+        <div>
+            <img src="figures/BERT_correlation.png" alt="PC1 Distribution by Word Length - BERT">
+        </div>
+        <div>
+            <img src="figures/RoBERTa_correlation.png" alt="PC1 Distribution by Word Length - RoBERTa">
+        </div>
+    </div>
+
+    <h3>2. Semantic Organisation Varies by Morphological Complexity</h3>
+    <p><strong>Single-character nouns occupy a condensed subspace with minimal semantic differentiation, whereas multi-character nouns separate into clear semantic clusters.</strong></p>
+    <p>This suggests both models have internalised a fundamental property of Chinese: most compound nouns have fixed, specific meanings, whereas single-character words function as flexible building blocks with context-dependent meanings.</p>
+
+    <div class="stacked">
+        <iframe src="figures/BERT_nouns.html"></iframe>
+        <iframe src="figures/RoBERTa_nouns.html"></iframe>
+    </div>
+
+    <h3>3. Single-Character Nouns Reveal Secondary Organising Principles</h3>
+    <p><strong>Within the single-character subspace, both models encode additional properties beyond semantic meaning, revealing secondary patterns that distinguish how words function within the language.</strong></p>
+    <p>BERT exhibits a diagonal boundary separating tight semantic clusters from heterogeneous ones, whereas RoBERTa separates functionally distinct words into singleton clusters.</p>
+
+    <div class="stacked">
+        <iframe src="figures/BERT_singles.html"></iframe>
+        <iframe src="figures/RoBERTa_singles.html"></iframe>
+    </div>
+
+    <h2>Masking Trade-offs</h2>
+    <p><strong>BERT preserves semantic granularity within morphological groups at the cost of weaker structural boundaries, whereas RoBERTa amplifies morphological separation but collapses internal semantic structure.</strong></p>
+    <p>This behaviour stems from pre-training objectives. Character-level masking forces BERT to predict individual characters from context, maintaining distinctions between morphologically similar words. Whole-word masking treats multi-character words as atomic units, strengthening RoBERTa's morphological boundaries (r = -0.853 vs BERT's r = 0.812) but merging semantically diverse single-character nouns into large heterogeneous clusters.</p>
+
+    <h2>Implications</h2>
+    <p>BERT and RoBERTa both organise Chinese nouns hierarchically, but different masking strategies create fundamental trade-offs that shape the linguistic properties each model prioritises.</p>
+    <p>Character-level masking (BERT) preserves fine-grained semantic distinctions within morphological groups, which is useful for semantic search or entity disambiguation.</p>
+    <p>Whole-word masking (RoBERTa) amplifies structural boundaries and captures functional patterns, making it a better choice for morphological analysis or part-of-speech tagging.</p>
+
+    <h2>Future Work</h2>
+
+    <p><strong>Downstream Task Evaluation:</strong> Validate whether representational differences predict performance by comparing BERT and RoBERTa on various semantic and structural tasks.</p>
+
+    <p><strong>Cross-linguistic Validation:</strong> Test languages with different morphological structures and writing systems to determine whether hierarchical organisation generalises beyond Chinese.</p>
+    
+    <p><strong>Cross-model Validation:</strong> Examine whether similar trade-offs emerge in decoder architectures (GPT-style models), which use causal masking rather than bidirectional methods.</p>
+
+    <hr>
+
+    <p><a href="https://github.com/chmcbs/chinese-noun-embeddings"><strong>View the full analysis on GitHub →</strong></a></p>
+</body>
+</html>
